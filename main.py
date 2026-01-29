@@ -43,8 +43,9 @@ if ENV_PATH.exists():
         logger.info("python-dotenv not installed or failed to load .env")
 BASE_URL = "https://www.seek.com.au"
 STATE_FILE = os.path.join(BASE_DIR, "data", "seen_jobs.json")
-MAX_RETRIES = 3
-RETRY_DELAY = 10  # seconds
+MAX_RETRIES = 5
+RETRY_DELAY = 5  # base delay in seconds (will use exponential backoff)
+LAST_RESPONSE_FILE = os.path.join(BASE_DIR, 'last_response.html')
 
 # Environment / secrets
 # DRY_RUN allows running without Telegram credentials for testing/parsing
@@ -101,14 +102,22 @@ class SeekScraper:
                     return self._parse_response(resp.text)
                 elif resp.status_code in (403, 429):
                     logger.warning(f"Received {resp.status_code}. Attempt {attempt}/{MAX_RETRIES}")
-                    time.sleep(RETRY_DELAY * attempt)
+                    # Save body for offline inspection
+                    try:
+                        with open(LAST_RESPONSE_FILE, 'w', encoding='utf-8') as f:
+                            f.write(resp.text[:200000])
+                        logger.info(f"Saved last response to {LAST_RESPONSE_FILE}")
+                    except Exception as e:
+                        logger.debug(f"Failed to save last response: {e}")
+                    # exponential backoff
+                    time.sleep(RETRY_DELAY * (2 ** (attempt - 1)))
                     continue
                 else:
                     logger.error(f"Unexpected HTTP status: {resp.status_code}")
                     break
             except RequestException as e:
                 logger.error(f"Network error: {e}. Attempt {attempt}/{MAX_RETRIES}")
-                time.sleep(RETRY_DELAY * attempt)
+                time.sleep(RETRY_DELAY * (2 ** (attempt - 1)))
         return []
 
     def _parse_response(self, html: str) -> List[Dict]:

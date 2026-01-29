@@ -36,6 +36,12 @@ jobs:
           PROXY_URL: ${{ secrets.PROXY_URL }}
         run: |
           python main.py
+      - name: Upload diagnostic response
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-response
+          path: last_response.html
 
       - name: Commit state changes
         uses: stefanzweifel/git-auto-commit-action@v5
