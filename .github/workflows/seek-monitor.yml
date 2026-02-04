@@ -25,6 +25,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEARCH_KEYWORDS: ${{ secrets.SEARCH_KEYWORDS }}
         run: python3 main.py
       
       - name: Commit state changes
