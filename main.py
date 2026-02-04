@@ -63,12 +63,13 @@ else:
         # Exit with non-zero code so CI indicates misconfiguration
         sys.exit(1)
 
-# Default to Manual Testing roles in Auckland. Can be overridden with env vars.
-# Include common manual/QA role name variants; user can override with SEARCH_KEYWORDS env var.
-SEARCH_KEYWORDS = os.environ.get(
-    "SEARCH_KEYWORDS",
-    "Manual Testing,Manual Tester,Manual QA,QA Tester,QA Analyst,Quality Analyst,Quality Assurance Tester,Test Analyst,Functional Tester,Regression Tester,Test Engineer (Manual),Manual QA Engineer"
-).split(",")
+# Search keywords (must be provided via environment variable SEARCH_KEYWORDS)
+# Format: comma-separated list of job titles to search for
+SEARCH_KEYWORDS_ENV = os.environ.get("SEARCH_KEYWORDS")
+if not SEARCH_KEYWORDS_ENV:
+    logger.critical("Required environment variable SEARCH_KEYWORDS is not set. Please configure it in GitHub Secrets.")
+    sys.exit(1)
+SEARCH_KEYWORDS = SEARCH_KEYWORDS_ENV.split(",")
 SEARCH_LOCATION = os.environ.get("SEARCH_LOCATION", "Auckland")
 
 # Exclude automation-related roles by keywords (can be overridden via env)
