@@ -410,10 +410,16 @@ def load_state() -> Set[str]:
 
 
 def save_state(seen_ids: Set[str]):
+    """Save the set of seen job IDs to the state file."""
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    # Keep only the most recent 2000 jobs to avoid unbounded file growth
     limited_ids = list(seen_ids)[-2000:]
-    with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(limited_ids, f, ensure_ascii=False, indent=2)
+    try:
+        with open(STATE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(limited_ids, f, ensure_ascii=False, indent=2)
+        logger.info(f"Saved {len(limited_ids)} job IDs to {STATE_FILE}")
+    except Exception as e:
+        logger.error(f"Failed to save state: {e}")
 
 
 def main():
@@ -432,39 +438,60 @@ def main():
         logger.info(f"Searching for: {k}")
         jobs = scraper.search(k, SEARCH_LOCATION)
         if jobs:
+            logger.info(f"Found {len(jobs)} jobs for keyword '{k}'")
             all_found_jobs.extend(jobs)
         time.sleep(random.uniform(2, 5))
 
-    # Deduplicate
+    # Deduplicate by job ID
     unique_jobs = list({j['id']: j for j in all_found_jobs if j.get('id')}.values())
+    logger.info(f"Total unique jobs after deduplication: {len(unique_jobs)}")
 
     new_count = 0
     skipped_not_location = 0
     skipped_automation = 0
+    skipped_seen = 0
     for job in unique_jobs:
         jid = job.get('id')
         if not jid:
+            logger.debug(f"Skipping job with no ID: {job}")
             continue
-        if jid not in seen_jobs:
-            # location filter
-            if not matches_location(job, SEARCH_LOCATION):
-                skipped_not_location += 1
-                continue
-            # automation exclusion
-            if looks_automated(job):
-                skipped_automation += 1
-                continue
+        
+        # Check if we've already seen this job
+        if jid in seen_jobs:
+            skipped_seen += 1
+            logger.debug(f"Job {jid} already seen, skipping")
+            continue
+        
+        # location filter
+        if not matches_location(job, SEARCH_LOCATION):
+            skipped_not_location += 1
+            logger.debug(f"Job {jid} doesn't match location '{SEARCH_LOCATION}': {job.get('location')}")
+            continue
+        
+        # automation exclusion
+        if looks_automated(job):
+            skipped_automation += 1
+            logger.debug(f"Job {jid} looks like automation: {job.get('title')}")
+            continue
 
-            logger.info(f"New job: {jid} - {job.get('title')}")
+        # Mark as seen BEFORE sending to avoid duplicates if send fails
+        seen_jobs.add(jid)
+        logger.info(f"New job: {jid} - {job.get('title')}")
+        
+        try:
             notifier.send_job(job)
-            seen_jobs.add(jid)
             new_count += 1
+        except Exception as e:
+            logger.error(f"Failed to send notification for job {jid}: {e}")
+            # Keep it in seen_jobs anyway to avoid re-sending
 
-    if new_count:
+    # Save state only if we found new jobs or if this is the first run
+    if new_count > 0 or len(seen_jobs) == 0:
         save_state(seen_jobs)
-        logger.info(f"State updated, {new_count} new jobs saved")
-    else:
-        logger.info("No new jobs found")
+        logger.info(f"State updated with {new_count} new jobs")
+    
+    logger.info(f"Summary: {new_count} new jobs sent")
+    logger.info(f"Skipped {skipped_seen} already-seen jobs")
     if skipped_not_location:
         logger.info(f"Skipped {skipped_not_location} jobs due to location filter (not {SEARCH_LOCATION})")
     if skipped_automation:
