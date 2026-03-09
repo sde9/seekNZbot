@@ -63,13 +63,36 @@ else:
         # Exit with non-zero code so CI indicates misconfiguration
         sys.exit(1)
 
-# Search keywords (must be provided via environment variable SEARCH_KEYWORDS)
-# Format: comma-separated list of job titles to search for
-SEARCH_KEYWORDS_ENV = os.environ.get("SEARCH_KEYWORDS")
+# Search keywords (prefer environment variable SEARCH_KEYWORDS)
+# The value should be a comma-separated list (or newline-separated) of keywords.
+# When running in GitHub Actions set this via repository Secrets/Variables, e.g.
+# env: SEARCH_KEYWORDS: ${{ secrets.SEARCH_KEYWORDS }}
+SEARCH_KEYWORDS_ENV = (
+    os.environ.get("SEARCH_KEYWORDS")
+    or os.environ.get("GITHUB_SEARCH_KEYWORDS")
+    or os.environ.get("INPUT_SEARCH_KEYWORDS")
+    or os.environ.get("GITHUB_SECRET_SEARCH_KEYWORDS")
+)
+
+# If running in GitHub Actions and the workflow writes the secret to a file,
+# support reading from that file path (common pattern when using masked secrets).
+if not SEARCH_KEYWORDS_ENV and os.environ.get("GITHUB_ACTIONS") == "true":
+    keywords_file = os.environ.get("SEARCH_KEYWORDS_FILE") or os.environ.get("INPUT_SEARCH_KEYWORDS_FILE")
+    if keywords_file and os.path.exists(keywords_file):
+        try:
+            with open(keywords_file, 'r', encoding='utf-8') as f:
+                SEARCH_KEYWORDS_ENV = f.read().strip()
+                logger.info(f"Loaded SEARCH_KEYWORDS from file: {keywords_file}")
+        except Exception as e:
+            logger.warning(f"Failed to read SEARCH_KEYWORDS_FILE {keywords_file}: {e}")
+
 if not SEARCH_KEYWORDS_ENV:
-    logger.critical("Required environment variable SEARCH_KEYWORDS is not set. Please configure it in GitHub Secrets.")
-    sys.exit(1)
-SEARCH_KEYWORDS = SEARCH_KEYWORDS_ENV.split(",")
+    # Use default keywords if not provided via environment variable
+    SEARCH_KEYWORDS_ENV = "web designer,front-end,ux/ui,product manager,video editor"
+    logger.info("Using default search keywords")
+
+# Support comma or newline separated keywords and strip whitespace
+SEARCH_KEYWORDS = [s.strip() for s in re.split(r",|\n", SEARCH_KEYWORDS_ENV) if s.strip()]
 SEARCH_LOCATION = os.environ.get("SEARCH_LOCATION", "Auckland")
 
 # Exclude automation-related roles by keywords (can be overridden via env)
