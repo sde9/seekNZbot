@@ -66,7 +66,7 @@ else:
 # Search keywords (prefer environment variable SEARCH_KEYWORDS)
 # The value should be a comma-separated list (or newline-separated) of keywords.
 # When running in GitHub Actions set this via repository Secrets/Variables, e.g.
-# env: SEARCH_KEYWORDS: ${{ secrets.SEARCH_KEYWORDS }}
+# env: SEARCH_KEYWORDS: ${{ secre ts.SEARCH_KEYWORDS }}
 SEARCH_KEYWORDS_ENV = (
     os.environ.get("SEARCH_KEYWORDS")
     or os.environ.get("GITHUB_SEARCH_KEYWORDS")
@@ -88,7 +88,7 @@ if not SEARCH_KEYWORDS_ENV and os.environ.get("GITHUB_ACTIONS") == "true":
 
 if not SEARCH_KEYWORDS_ENV:
     # Use default keywords if not provided via environment variable
-    SEARCH_KEYWORDS_ENV = "business analyst, web designer,front-end,ux/ui,product manager,video editor"
+    SEARCH_KEYWORDS_ENV = "web designer,front-end,ux/ui,product manager,video editor,tailor,dressmaker,wedding dress,wedding gown,seamstress"
     logger.info("Using default search keywords")
 
 # Support comma or newline separated keywords and strip whitespace
