@@ -88,7 +88,7 @@ if not SEARCH_KEYWORDS_ENV and os.environ.get("GITHUB_ACTIONS") == "true":
 
 if not SEARCH_KEYWORDS_ENV:
     # Use default keywords if not provided via environment variable
-    SEARCH_KEYWORDS_ENV = "web designer,front-end,ux/ui,product manager,video editor"
+    SEARCH_KEYWORDS_ENV = "business analyst, web designer,front-end,ux/ui,product manager,video editor"
     logger.info("Using default search keywords")
 
 # Support comma or newline separated keywords and strip whitespace
